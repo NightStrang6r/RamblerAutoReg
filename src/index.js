@@ -22,8 +22,21 @@ main();
 async function main() {
     read.setDefaultOptions({encoding: 'ascii'});
 
-    const email = read.question("Введите логин email (без rambler.ru): ");
-    const passLength = +read.question("Введите желаемую длину пароля: ");
+    let email = read.question("Введите логин email (без rambler.ru): ");
+    let passLength = +read.question("Введите желаемую длину пароля (стандартно 15): ");
+    let emailsCount = +read.question("Введите количество регистрируемых почт (стандартно 1): ");
+    let startValue = 1;
+    if(emailsCount > 1) {
+        startValue = +read.question(`Введите начальное значение в имени регистрации (стандартно 1, т.е. ${email}${startValue}@rambler.ru, ${email}${startValue}@rambler.ru...): `);
+    }
+
+    if(passLength == 0) {
+        passLength = 15;
+    }
+
+    if(emailsCount == 0) {
+        emailsCount = 1;
+    }
 
     browser = await puppeteer.launch({
         headless: false,
@@ -33,13 +46,18 @@ async function main() {
         defaultViewport: null
     });
 
-    const pass = generatePassword(passLength);
+    for(let i = 0; i < emailsCount; i++) {
+        if(emailsCount != 1) {
+            email = `${email}${i}`;
+        }
 
-    const res = await reg(email, pass, '123456');
-
-    if(res) {
-        console.log(`Почта зарегистрирована: `);
-        console.log(res);
+        const pass = generatePassword(passLength);
+        const res = await reg(email, pass, '123456');
+    
+        if(res) {
+            console.log(`Почта зарегистрирована: `);
+            console.log(res);
+        }
     }
     
     browser.close();
@@ -71,9 +89,10 @@ async function reg(email, pass, code) {
 
         await page.type(selectors.questionAnswer, code, {delay: 20});
 
-        /*await page.evaluate(async (selectors) => {
-            while(document.querySelector(selectors.hCapcha) == null && document.querySelector(selectors.hCapcha).ariaChecked != "true") {
+        await page.evaluate(async (selectors) => {
+            while(document.querySelector("#checkbox") == null || document.querySelector("#checkbox").ariaChecked != "true") {
                 await sleep(500);
+                console.log(document.querySelector("#checkbox"));
             }
 
             async function sleep(timeout) {
@@ -83,7 +102,7 @@ async function reg(email, pass, code) {
             }
         }, selectors);
         
-        await page.click(selectors.submit);*/
+        await page.click(selectors.submit);
         
         while(!(await page.target()._targetInfo.url).includes(readyPage)) {
             await sleep(500);
