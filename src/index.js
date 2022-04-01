@@ -1,8 +1,9 @@
-const puppeteer = require('puppeteer');
-const read = require('readline-sync');
+import puppeteer from 'puppeteer';
+import read from 'readline-sync';
+import { exec } from "child_process"
+import { load } from "./storage.js";
 
-const url = `https://id.rambler.ru/login-20/mail-registration?utm_source=head&utm_campaign=self_promo&utm_medium=header&utm_content=mail&rname=mail&theme=&session=false&back=https%3A%2F%2Fmail.rambler.ru%2F%3Futm_source%3Dhead%26utm_campaign%3Dself_promo%26utm_medium%3Dheader%26utm_content%3Dmail&param=embed&iframeOrigin=https%3A%2F%2Fmail.rambler.ru`;
-const readyPage = `https://id.rambler.ru/login-20/mail-registration/completion`;
+const config = load('config.json');
 
 const selectors = {
     mail: "#login",
@@ -14,20 +15,19 @@ const selectors = {
     hCapcha: "#checkbox",
     submit: "button[type=submit]"
 };
-
 let browser;
 
 main();
 
 async function main() {
-    read.setDefaultOptions({encoding: 'ascii'});
+    await exec("chcp 65001");
 
-    let email = read.question("Введите логин email (без rambler.ru): ");
+    let login = read.question("Введите логин email (без rambler.ru): ");
     let passLength = +read.question("Введите желаемую длину пароля (стандартно 15): ");
     let emailsCount = +read.question("Введите количество регистрируемых почт (стандартно 1): ");
     let startValue = 1;
     if(emailsCount > 1) {
-        startValue = +read.question(`Введите начальное значение в имени регистрации (стандартно 1, т.е. ${email}${startValue}@rambler.ru, ${email}${startValue}@rambler.ru...): `);
+        startValue = +read.question(`Введите начальное значение в имени регистрации (стандартно 1, т.е. ${login}${startValue}@rambler.ru, ${login}${startValue}@rambler.ru...): `);
     }
 
     if(passLength == 0) {
@@ -38,6 +38,28 @@ async function main() {
         emailsCount = 1;
     }
 
+    if(startValue == 0) {
+        startValue = 1;
+    }
+
+    let accounts = [];
+
+    for(let i = startValue; i < emailsCount + startValue; i++) {
+        if(emailsCount != 1) {
+            login = `${login}${i}`;
+        }
+
+        const email = `${login}@rambler.ru`;
+        const pass = generatePassword(passLength);
+
+        accounts[accounts.length] = {
+            login: login,
+            email: email,
+            pass: pass,
+            code: config.code
+        };
+    }
+
     browser = await puppeteer.launch({
         headless: false,
         args:[
@@ -46,17 +68,14 @@ async function main() {
         defaultViewport: null
     });
 
-    for(let i = 0; i < emailsCount; i++) {
-        if(emailsCount != 1) {
-            email = `${email}${i}`;
-        }
-
-        const pass = generatePassword(passLength);
-        const res = await reg(email, pass, '123456');
+    for(let i = 0; i < accounts.length; i++) {
+        const acc = accounts[i];
+        const res = await reg(acc.login, acc.pass, acc.code);
     
         if(res) {
-            console.log(`Почта зарегистрирована: `);
-            console.log(res);
+            console.log(`Почта #${i} зарегистрирована: `);
+            console.log(acc.email);
+            console.log(acc.pass);
         }
     }
     
@@ -69,10 +88,7 @@ async function reg(email, pass, code) {
     try {
         const pages = await browser.pages();
         const page = pages[0];
-        await page.goto(url);
-        //console.log(page);
-        
-        //await page.waitForNavigation({waitUntil: 'networkidle2'});
+        await page.goto(config.url);
 
         await page.waitForSelector(selectors.mail);
         await page.type(selectors.mail, email, {delay: 20});
@@ -89,22 +105,23 @@ async function reg(email, pass, code) {
 
         await page.type(selectors.questionAnswer, code, {delay: 20});
 
-        await page.evaluate(async (selectors) => {
-            while(document.querySelector("#checkbox") == null || document.querySelector("#checkbox").ariaChecked != "true") {
-                await sleep(500);
-                console.log(document.querySelector("#checkbox"));
-            }
+        await page.evaluate(() => {
+            return new Promise((resolve, reject) => {
+                setInterval(() => {
+                    const element = document.querySelector('iframe');
+                    const capchaResp = element.dataset.hcaptchaResponse;
+                    console.log(capchaResp);
+                    if(capchaResp == "") return;
+                    resolve(capchaResp);
+                }, 200);
+            });
+        });
 
-            async function sleep(timeout) {
-                return new Promise((resolve) => {
-                    setTimeout(resolve, timeout);
-                });
-            }
-        }, selectors);
+        console.log(`Капча пройдена`);
         
         await page.click(selectors.submit);
         
-        while(!(await page.target()._targetInfo.url).includes(readyPage)) {
+        while(!(await page.target()._targetInfo.url).includes(config.readyPage)) {
             await sleep(500);
         }
         await deleteCookies(page);
