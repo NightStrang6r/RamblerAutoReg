@@ -45,15 +45,16 @@ async function main() {
     let accounts = [];
 
     for(let i = startValue; i < emailsCount + startValue; i++) {
+        let currentLogin = login;
         if(emailsCount != 1) {
-            login = `${login}${i}`;
+            currentLogin = `${login}${i}`;
         }
 
-        const email = `${login}@rambler.ru`;
+        const email = `${currentLogin}@rambler.ru`;
         const pass = generatePassword(passLength);
 
         accounts[accounts.length] = {
-            login: login,
+            login: currentLogin,
             email: email,
             pass: pass,
             code: config.code
@@ -73,9 +74,10 @@ async function main() {
         const res = await reg(acc.login, acc.pass, acc.code);
     
         if(res) {
-            console.log(`Почта #${i} зарегистрирована: `);
+            console.log(`Почта #${(i + 1)} зарегистрирована: `);
             console.log(acc.email);
             console.log(acc.pass);
+            console.log();
         }
     }
     
