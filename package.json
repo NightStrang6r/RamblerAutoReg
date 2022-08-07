@@ -5,10 +5,12 @@
   "main": "src/index.js",
   "type": "module",
   "dependencies": {
+    "chalk": "^5.0.1",
+    "chalk-animation": "^2.0.2",
+    "inquirer": "^9.1.0",
     "puppeteer": "^13.5.1",
     "readline-sync": "^1.4.10"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
