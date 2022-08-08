@@ -6,15 +6,21 @@ import path from 'path';
 import c from 'chalk';
 import fs from 'fs';
 import log from './log.js'
-import inquirer from 'inquirer';
+import Password from './password.js';
+import Ask from './ask.js';
 
 class App {
     constructor() {
-        this.config = load('config.json');
+        this.settings = load('settings.json');
+        this.links = load('./src/links.json');
         this.browser = null;
+
+        this.ask = new Ask();
 
         this.selectors = {
             mail: "#login",
+            domainButton: ".rui-Select-arrow",
+            domainMenu: ".rui-Menu-content",
             pass: "#newPassword",
             passVerify: "#confirmPassword",
             questionType: "input[placeholder='Выберите вопрос']",
@@ -31,25 +37,165 @@ class App {
         if(fs.existsSync(this.chromePath)) {
             log(c.green(`Found Chrome: "${this.chromePath}"`));
         } else {
-            log(c.red(`Chrome not found. Exiting...`));
+            log(c.red(`Chrome not found (path: "${this.chromePath}"). Exiting...`));
             return;
         }
         
-        let regMode = await this.askRegMode();
+        let regMode = await this.ask.askRegMode();
 
         if(regMode == 'Load data from file') {
-            log(c.red('In development...'));
-            return;
+            await this.regByFile();
         } else {
             await this.regByGenerate();
         }
     }
 
+    async regByFile() {
+        if(!fs.existsSync(this.settings.mailsFile)) {
+            fs.writeFileSync(this.settings.mailsFile, 'mail@rambler.ua:password:recoveryCode');
+            log(`${c.cyan(`File ${this.settings.mailsFile} created. Fill it with mail data in the format:`)} ${c.green('mail@rambler.ua:password:recoveryCode')} ${c.cyan('Each mail on a new line. Then restart the program.')}`);
+            return;
+        }
+
+        log(c.green(`File ${this.settings.mailsFile} found`));
+
+        const mails = this.parseMailsFile();
+        if(!mails || ! mails.length) return;
+        log(`Loaded ${mails.length} mails`);
+
+        const toStart = await this.ask.askToStartRegistration();
+        if(!toStart) return;
+
+        await this.launchChrome();
+
+        for(let i = 0; i < mails.length; i++) {
+            const mail = mails[i];
+
+            log(c.cyan(`[${(i + 1)}] Registering ${mail.login}...`));
+            const res = await this.reg(mail.login, mail.domain, mail.pass, mail.code);
+        
+            if(res) {
+                log(c.green(`[${(i + 1)}] Mail ${mail.email} successfully registered:`));
+                log(mail.email);
+                log(mail.pass);
+                this.moveMailToRegisteredFile(mail.email);
+            } else {
+                log(c.red(`Failed to register mail ${mail.email}`));
+                const toContinue = await this.ask.askToContinue();
+
+                if(!toContinue) break;
+            }
+        }
+        
+        await this.closeChrome();
+    }
+
+    parseMailsFile() {
+        const mailsFile = fs.readFileSync(this.settings.mailsFile);
+        let mailsData = mailsFile.toString().split('\r\n');
+        let mails = [];
+
+        for(let i = 0; i < mailsData.length; i++) {
+            if(!mailsData[i] || mailsData[i] == '') continue;
+
+            let mail = mailsData[i].split(':');
+            const email = mail[0];
+            const pass = mail[1];
+            const code = mail[2];
+            const login = mail[0].split('@')[0];
+            const domain = mail[0].split('@')[1];
+            let error = false;
+
+            if(!email || email == '') {
+                log(c.red(`Failed to parse mail: mail cant be empty.`));
+                error = true;
+            }
+
+            if(!email.includes('@')) {
+                log(c.red(`Failed to parse mail: mail must contain "@" symbol.`));
+                error = true;
+            }
+
+            if(login.length < 3 || login.length > 32) {
+                log(c.red(`Failed to parse mail: login must be at least 3 characters and not more than 32 characters.`));
+                error = true;
+            }
+
+            if(domain != 'rambler.ru' && domain != 'lenta.ru' && domain != 'autorambler.ru' && domain != 'myrambler.ru' && domain != 'ro.ru' && domain != 'rambler.ua') {
+                log(c.red(`Failed to parse mail: domain ${domain} is not supported. Use rambler.ru, lenta.ru, autorambler.ru, myrambler.ru, ro.ru or rambler.ua instead.`));
+                error = true;
+            }
+
+            if(pass.length < 9) {
+                log(c.red(`Failed to parse mail: pass must contain at least 9 characters.`));
+                error = true;
+            }
+
+            if(!code || code == '' || isNaN(code)) {
+                log(c.red(`Failed to parse mail: code must be a number.`));
+                error = true;
+            }
+
+            mail = {
+                login: login,
+                domain: domain,
+                email: email,
+                pass: pass,
+                code: code
+            }
+
+            if(error) {
+                log(mail);
+                return;
+            }
+
+            mails.push(mail);
+            log(`Parsing ${email}... ${c.green('OK')}`);
+        }
+
+        return mails;
+    }
+
+    async moveMailToRegisteredFile(email) {
+        if(!fs.existsSync(this.settings.mailsFile)) {
+            log(c.red(`Cant find ${this.settings.mailsFile}`));
+            return;
+        }
+
+        if(!fs.existsSync(this.settings.registeredMailsFile)) {
+            fs.writeFileSync(this.settings.registeredMailsFile, '');
+            log(c.green(`File ${this.settings.registeredMailsFile} created`));
+        }
+
+        const mailsFile = fs.readFileSync(this.settings.mailsFile);
+        let mailsData = mailsFile.toString().split('\r\n');
+        const registeredMailsFile = fs.readFileSync(this.settings.registeredMailsFile);
+        
+
+        let mailString = '';
+
+        for(let i = 0; i < mailsData.length; i++) {
+            if(mailsData[i].includes(email)) {
+                mailString = mailsData[i];
+                mailsData.splice(i, 1);
+                break;
+            }
+        }
+
+        const newRegisteredMailsFile = registeredMailsFile.toString() + mailString + '\r\n';
+        fs.writeFileSync(this.settings.registeredMailsFile, newRegisteredMailsFile);
+
+        mailsData = mailsData.join('\r\n');
+        fs.writeFileSync(this.settings.mailsFile, mailsData);
+    }
+
     async regByGenerate() {
-        let answers = await this.ask();
+        let answers = await this.ask.ask();
         let login = answers.mailLogin;
+        let domain = answers.domain;
         let passLength = +answers.passLength;
         let emailsCount = +answers.emailsCount;
+        let code = answers.code;
         let startValue = 1;
 
         if(emailsCount > 1) {
@@ -68,8 +214,30 @@ class App {
             startValue = 1;
         }
     
-        const accounts = await this.generateAccounts(login, passLength, emailsCount, startValue);
+        const mails = await this.generateAccounts(login, domain, passLength, emailsCount, startValue, code);
     
+        await this.launchChrome();
+
+        for(let i = 0; i < mails.length; i++) {
+            const mail = mails[i];
+            const res = await this.reg(mail.login, mail.domain, mail.pass, mail.code);
+        
+            if(res) {
+                log(c.green(`[${(i + 1)}] Mail ${mail.email} successfully registered:`));
+                log(mail.email);
+                log(mail.pass);
+            } else {
+                log(c.red(`Failed to register mail ${mail.email}`));
+                const toContinue = await this.ask.askToContinue();
+
+                if(!toContinue) break;
+            }
+        }
+        
+        await this.closeChrome();
+    }
+
+    async launchChrome() {
         this.browser = await puppeteer.launch({
             executablePath: this.chromePath,
             headless: false,
@@ -78,62 +246,15 @@ class App {
             ],
             defaultViewport: null
         });
-    
-        for(let i = 0; i < accounts.length; i++) {
-            const acc = accounts[i];
-            const res = await this.reg(acc.login, acc.pass, acc.code);
-        
-            if(res) {
-                log(`Почта #${(i + 1)} зарегистрирована: `);
-                log(acc.email);
-                log(acc.pass);
-            }
-        }
-        
+    }
+
+    async closeChrome() {
         this.browser.close();
     }
 
-    async askRegMode() {
-        const questions = 
-        [{
-            name: 'regMode',
-            type: 'list',
-            message: 'Select registration mode:',
-            choices: ['Load data from file', 'Enter login, email count and generate passwords']
-        }];
-
-        const answers = await inquirer.prompt(questions);
-        return answers.regMode;
-    }
-
-    async ask() {
-        const questions = 
-        [{
-            name: 'mailLogin',
-            type: 'input',
-            message: 'Enter mail login (before @):'
-        }, {
-            name: 'passLength',
-            type: 'number',
-            message: 'Enter pass length (15 by default):',
-            default() {
-                return 15;
-            }
-        }, {
-            name: 'emailsCount',
-            type: 'number',
-            message: 'Enter count of mails to register (1 by default):',
-            default() {
-                return 1;
-            }
-        }];
-
-        const answers = await inquirer.prompt(questions);
-        return answers;
-    }
-
-    generateAccounts(login, passLength, emailsCount, startValue) {
+    generateAccounts(login, domain, passLength, emailsCount, startValue, code) {
         let accounts = [];
+        let password = new Password();
     
         for(let i = startValue; i < emailsCount + startValue; i++) {
             let currentLogin = login;
@@ -143,29 +264,45 @@ class App {
             }
     
             const email = `${currentLogin}@rambler.ru`;
-            const pass = this.generatePassword(passLength);
+            const pass = password.generate(passLength);
     
             accounts[accounts.length] = {
                 login: currentLogin,
+                domain: domain,
                 email: email,
                 pass: pass,
-                code: this.config.code
+                code: code
             };
         }
 
         return accounts;
     }
 
-    async reg(email, pass, code) {
+    async reg(login, domain, pass, code) {
         let result = false;
     
         try {
             const pages = await this.browser.pages();
             const page = pages[0];
-            await page.goto(this.config.url);
+            await page.goto(this.links.url);
     
             await page.waitForSelector(this.selectors.mail);
-            await page.type(this.selectors.mail, email, {delay: 20});
+            await page.type(this.selectors.mail, login, {delay: 20});
+
+            await page.evaluate(() => {
+                return new Promise((resolve, reject) => {
+                    document.querySelector('.rui-Select-arrow').click();
+                    resolve(true);
+                });
+            });
+
+            await page.waitForSelector(this.selectors.domainMenu);
+            await page.evaluate((domainId) => {
+                return new Promise((resolve, reject) => {
+                    document.querySelector('.rui-Menu-content').children[domainId].click();
+                    resolve(true);
+                });
+            }, this.getDomainNumber(domain));
     
             await page.type(this.selectors.pass, pass, {delay: 20});
     
@@ -185,7 +322,7 @@ class App {
                         const element = document.querySelector('iframe');
                         const capchaResp = element.dataset.hcaptchaResponse;
                         console.log(capchaResp);
-                        if(capchaResp == "") return;
+                        if(!capchaResp || capchaResp == "") return;
                         resolve(capchaResp);
                     }, 200);
                 });
@@ -193,18 +330,18 @@ class App {
             
             await page.click(this.selectors.submit);
             
-            while(!(await page.target()._targetInfo.url).includes(this.config.readyPage)) {
+            while(!(await page.target()._targetInfo.url).includes(this.links.readyPage)) {
                 await this.sleep(500);
             }
             await this.deleteCookies(page);
     
             result = {
-                email: `${email}@rambler.ru`,
+                login: `${login}@${domain}`,
                 pass: pass,
                 code: code
             };
         } catch (err) {
-            console.log(`Ошибка при регистрации почты: ${err}`);
+            log(c.red(`Error while registering mail: ${err}`));
         }
     
         return result;
@@ -221,41 +358,6 @@ class App {
         });
     }
 
-    generatePassword(length) {
-        const upper = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
-        const lower = "abcdefghijkmnopqrstuvwxyz";
-        const numbers = "0123456789";
-    
-        let symbols = upper + lower + numbers;
-        let password = "";
-        
-        for (var i = 0; i < length; i++) {
-            password += symbols.charAt(this.rand(symbols.length)); 
-        }
-    
-        if(length >= 6) {
-            for (let i = 0; i < 2; i++) {
-                password = this.replaceAt(password, upper.charAt(this.rand(upper.length)), this.rand(password.length));
-            }
-            for (let i = 0; i < 2; i++) {
-                password = this.replaceAt(password, lower.charAt(this.rand(lower.length)), this.rand(password.length));
-            }
-            for (let i = 0; i < 3; i++) {
-                password = this.replaceAt(password, numbers.charAt(this.rand(numbers.length)), this.rand(password.length));
-            }
-        }
-    
-        return password;
-    }
-
-    replaceAt(string, replacement, index) {
-        return string.substr(0, index) + replacement + string.substr(index + replacement.length);
-    }
-
-    rand(to) {
-        return Math.floor(Math.random() * to);
-    }
-
     async getChromePath() {
         const promise = new Promise((resolve, reject) => {
             const __dirname = path.resolve(path.dirname(''));
@@ -269,10 +371,15 @@ class App {
                 if (stderr!= "")
                     resolve(false);;
 
-                let result = stdout.split('exe=');
-                result = result[result.length - 1];
-                result = result.split('--single')[0];
-                result = result.slice(0, result.length - 1);
+                let result = stdout.split('"');
+
+                for(let i = 0; i < result.length; i++) {
+                    if(result[i].includes('chrome.exe')) {
+                        result = result[i];
+                        break;
+                    }
+                }
+
                 resolve(result);
             });
         });
@@ -280,7 +387,17 @@ class App {
         return promise;
     }
 
-    
+    getDomainNumber(domain) {
+        switch(domain) {
+            case 'rambler.ru': return 0;
+            case 'lenta.ru': return 1;
+            case 'autorambler.ru': return 2;
+            case 'myrambler.ru': return 3;
+            case 'ro.ru': return 4;
+            case 'rambler.ua': return 5;
+            default: return 0;
+        }
+    }
 }
 
 export default App;
