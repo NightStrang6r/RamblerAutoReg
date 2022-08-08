@@ -38,6 +38,21 @@ class Ask {
         return answers.regMode;
     }
 
+    async askMailStartValue(login) {
+        const questions = 
+        [{
+            name: 'startValue',
+            type: 'number',
+            message: `Enter the initial value in the login name (default is 1, i.e. ${login}1@rambler.ru, ${login}2@rambler.ru...):`,
+            default() {
+                return 1;
+            }
+        }];
+
+        const answers = await inquirer.prompt(questions);
+        return answers.startValue;
+    }
+
     async ask() {
         const questions = 
         [{
