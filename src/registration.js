@@ -47,28 +47,7 @@ class Registration {
         const toStart = await this.ask.askToStartRegistration();
         if(!toStart) return;
 
-        await this.chrome.launch();
-
-        for(let i = 0; i < mails.length; i++) {
-            const mail = mails[i];
-
-            log(c.cyan(`[${(i + 1)}] Registering ${mail.login}...`));
-            const res = await this.reg(mail.login, mail.domain, mail.pass, mail.code);
-        
-            if(res) {
-                log(`${c.green(`[${(i + 1)}] Mail`)} ${c.magenta(mail.email)} ${c.green(`successfully registered:`)}`);
-                log(mail.email);
-                log(mail.pass);
-                await this.storage.moveMailToRegisteredFile(mail.email);
-            } else {
-                log(c.red(`Failed to register mail ${mail.email}`));
-                const toContinue = await this.ask.askToContinue();
-
-                if(!toContinue) break;
-            }
-        }
-        
-        await this.chrome.close();
+        this.regMails(mails, 'move');
     }
 
     async byGenerate() {
@@ -100,17 +79,30 @@ class Registration {
         const toStart = await this.ask.askToStartRegistration();
         if(!toStart) return;
 
+        this.regMails(mails, 'add');
+    }
+
+    async regMails(mails, toFile) {
         await this.chrome.launch();
 
         for(let i = 0; i < mails.length; i++) {
             const mail = mails[i];
+
+            log(c.cyan(`[${(i + 1)}] Registering ${mail.login}...`));
             const res = await this.reg(mail.login, mail.domain, mail.pass, mail.code);
         
             if(res) {
                 log(`${c.green(`[${(i + 1)}] Mail`)} ${c.magenta(mail.email)} ${c.green(`successfully registered:`)}`);
                 log(mail.email);
                 log(mail.pass);
-                await this.storage.addMailToRegisteredFile(mail);
+
+                if(toFile == 'move') {
+                    await this.storage.moveMailToRegisteredFile(mail.email);
+                }
+
+                if(toFile == 'add') {
+                    await this.storage.addMailToRegisteredFile(mail.email);
+                }
             } else {
                 log(c.red(`Failed to register mail ${mail.email}`));
                 const toContinue = await this.ask.askToContinue();
