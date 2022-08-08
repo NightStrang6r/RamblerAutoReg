@@ -101,7 +101,7 @@ class Registration {
                 }
 
                 if(toFile == 'add') {
-                    await this.storage.addMailToRegisteredFile(mail.email);
+                    await this.storage.addMailToRegisteredFile(mail);
                 }
             } else {
                 log(c.red(`Failed to register mail ${mail.email}`));
