@@ -9,7 +9,7 @@ const _dirname = dirname(_filename);
 
 class Storage {
     constructor() {
-        this.settings = this.load('settings.json');
+        this.settings = this.loadSettings();
     }
 
     load(uri) {
@@ -19,6 +19,7 @@ class Storage {
             
             if(!fs.existsSync(uri)) {
                 fs.writeFileSync(uri, '');
+                return '';
             }
     
             const rawdata = fs.readFileSync(uri);
@@ -26,6 +27,26 @@ class Storage {
         } catch (err) {
             console.log(`Ошибка при загрузке файла: ${err}`);
         }
+        return result;
+    }
+
+    loadSettings() {
+        const uri = `${_dirname}/../settings.json`;
+        let data = null;
+
+        if(!fs.existsSync(uri)) {
+            data = {
+                mailsFile: "mails.txt",
+                registeredMailsFile: "registeredMails.txt"
+            };
+
+            fs.writeFileSync(uri, JSON.stringify(data, null, 4));
+            return data;
+        }
+
+        data = fs.readFileSync(uri);
+        const result = JSON.parse(data);
+
         return result;
     }
 

@@ -2,3 +2,4 @@ node_modules
 build
 mails.txt
 registeredMails.txt
+settings.json

@@ -14,7 +14,7 @@ class Registration {
         this.chrome = new Chrome(this.chromePath);
         this.storage = new Storage();
 
-        this.settings = this.storage.load('settings.json');
+        this.settings = this.storage.loadSettings();
         this.links = this.storage.load('./src/links.json');
 
         this.selectors = {
