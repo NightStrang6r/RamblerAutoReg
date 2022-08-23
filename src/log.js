@@ -1,5 +1,4 @@
 import c from 'chalk';
-import cAnim from 'chalk-animation';
 
 const logo = `
  █████╗ ██╗   ██╗████████╗ ██████╗     ██████╗ ███████╗ ██████╗ 
@@ -17,7 +16,6 @@ printLogo();
 
 function printLogo() {
     console.log(`\x1b[5m${logo}\x1b[0m`);
-    //cAnim.rainbow('123123');
     console.log(c.cyan(version));
     console.log(c.magenta(by));
 }
