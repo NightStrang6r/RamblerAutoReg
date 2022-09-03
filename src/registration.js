@@ -83,6 +83,7 @@ class Registration {
     }
 
     async regMails(mails, toFile) {
+        let registered = 0;
         await this.chrome.launch();
 
         for(let i = 0; i < mails.length; i++) {
@@ -103,6 +104,7 @@ class Registration {
                 if(toFile == 'add') {
                     await this.storage.addMailToRegisteredFile(mail);
                 }
+                registered++;
             } else {
                 log(c.red(`Failed to register mail ${mail.email}`));
                 const toContinue = await this.ask.askToContinue();
@@ -112,6 +114,7 @@ class Registration {
         }
         
         await this.chrome.close();
+        log(c.green(`Successfully registered ${c.yellowBright(registered)} accounts.`));
     }
 
     async reg(login, domain, pass, code) {
@@ -152,6 +155,7 @@ class Registration {
             await page.click(this.selectors.questionSelect);
     
             await page.type(this.selectors.questionAnswer, code, {delay: 20});
+            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
     
             await page.evaluate(() => {
                 return new Promise((resolve, reject) => {

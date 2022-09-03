@@ -19,8 +19,6 @@
 ## 📧 Contacts
 If you have any questions, I will be glad to answer.
 
-Quick response:
-
 - Telegram - [@NightStrang6r](https://t.me/NightStrang6r)
 - Discord - 𝓝𝓲𝓰𝓱𝓽𝓢𝓽𝓻𝓪𝓷𝓰𝓮𝓻#0015
 
