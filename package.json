@@ -1,11 +1,12 @@
 {
   "name": "autorambler",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "",
   "main": "src/index.js",
   "type": "module",
   "dependencies": {
     "chalk": "^5.0.1",
+    "get-chrome": "^0.0.2",
     "inquirer": "^9.1.0",
     "puppeteer": "^13.5.1"
   },

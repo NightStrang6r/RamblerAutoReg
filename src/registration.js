@@ -27,7 +27,8 @@ class Registration {
             questionSelect: "div[data-cerber-id*='Почтовый индекс ваших родителей']",
             questionAnswer: "#answer",
             hCapcha: "#checkbox",
-            submit: "button[type=submit]"
+            submit: "button[type=submit]",
+            submitImapChange: 'button.MailAppsChange-submitButton-S7'
         };
     }
 
@@ -40,6 +41,8 @@ class Registration {
 
         log(c.green(`File ${this.settings.mailsFile} found`));
 
+        const imap = await this.ask.askToEnableIMAP();
+
         const mails = this.storage.parseMailsFile();
         if(!mails || ! mails.length) return;
         log(`Loaded ${mails.length} mails`);
@@ -47,7 +50,7 @@ class Registration {
         const toStart = await this.ask.askToStartRegistration();
         if(!toStart) return;
 
-        this.regMails(mails, 'move');
+        this.regMails(mails, 'move', imap);
     }
 
     async byGenerate() {
@@ -74,15 +77,17 @@ class Registration {
         if(startValue == 0) {
             startValue = 1;
         }
+
+        const imap = await this.ask.askToEnableIMAP();
     
         const mails = await this.generateAccounts(login, domain, passLength, emailsCount, startValue, code);
         const toStart = await this.ask.askToStartRegistration();
         if(!toStart) return;
 
-        this.regMails(mails, 'add');
+        this.regMails(mails, 'add', imap);
     }
 
-    async regMails(mails, toFile) {
+    async regMails(mails, toFile, imap = false) {
         let registered = 0;
         await this.chrome.launch();
 
@@ -90,7 +95,7 @@ class Registration {
             const mail = mails[i];
 
             log(c.cyan(`[${(i + 1)}] Registering ${mail.login}...`));
-            const res = await this.reg(mail.login, mail.domain, mail.pass, mail.code);
+            const res = await this.reg(mail.login, mail.domain, mail.pass, mail.code, imap);
         
             if(res) {
                 log(`${c.green(`[${(i + 1)}] Mail`)} ${c.magenta(mail.email)} ${c.green(`successfully registered:`)}`);
@@ -117,7 +122,7 @@ class Registration {
         log(c.green(`Successfully registered ${c.yellowBright(registered)} accounts.`));
     }
 
-    async reg(login, domain, pass, code) {
+    async reg(login, domain, pass, code, imap) {
         let result = false;
     
         try {
@@ -156,6 +161,17 @@ class Registration {
     
             await page.type(this.selectors.questionAnswer, code, {delay: 20});
             await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+
+            const iframeHandle = await page.$('iframe');
+            const iframe = await iframeHandle.contentFrame();
+
+            await iframe.evaluate(() => {
+                return new Promise((resolve, reject) => {
+                    const checkbox = document.querySelector('div#checkbox');
+                    checkbox.click();
+                    resolve();
+                });
+            });
     
             await page.evaluate(() => {
                 return new Promise((resolve, reject) => {
@@ -174,6 +190,25 @@ class Registration {
             while(!(await page.target()._targetInfo.url).includes(this.links.readyPage)) {
                 await this.sleep(500);
             }
+
+            if(imap) {
+                await page.goto('https://mail.rambler.ru/settings/mailapps/change');
+                await page.waitForSelector(this.selectors.submitImapChange);
+
+                await page.evaluate((submitImapChange) => {
+                    return new Promise((resolve, reject) => {
+                        setInterval(() => {
+                            const element = document.querySelector(submitImapChange);
+                            console.log(element.disabled);
+                            if(!element || element.disabled == true) return;
+                            resolve();
+                        }, 200);
+                    });
+                }, this.selectors.submitImapChange);
+
+                await page.click(this.selectors.submitImapChange);
+            }
+
             await this.chrome.deleteCookies(page);
     
             result = {

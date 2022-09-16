@@ -1,6 +1,5 @@
 import puppeteer from 'puppeteer';
-import { execFile } from 'child_process';
-import path from 'path';
+import getChrome from 'get-chrome';
 
 class Chrome {
     constructor(chromePath = '') {
@@ -28,32 +27,7 @@ class Chrome {
     }
 
     async getPath() {
-        const promise = new Promise((resolve, reject) => {
-            const __dirname = path.resolve(path.dirname(''));
-            const pathToBat = path.resolve(__dirname, 'src/utils/chromePath.bat');
-
-            execFile(pathToBat, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`exec error: ${error}`);
-                    resolve(false);
-                }
-                if (stderr!= "")
-                    resolve(false);;
-
-                let result = stdout.split('"');
-
-                for(let i = 0; i < result.length; i++) {
-                    if(result[i].includes('chrome.exe')) {
-                        result = result[i];
-                        break;
-                    }
-                }
-
-                resolve(result);
-            });
-        });
-        
-        return promise;
+        return getChrome();
     }
 
     setPath(path) {

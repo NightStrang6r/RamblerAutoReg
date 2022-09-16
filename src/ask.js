@@ -53,6 +53,18 @@ class Ask {
         return answers.startValue;
     }
 
+    async askToEnableIMAP() {
+        const questions = 
+        [{
+            name: 'imap',
+            type: 'confirm',
+            message: 'Do you want to enable IMAP for emails?'
+        }];
+
+        const answers = await inquirer.prompt(questions);
+        return answers.imap;
+    }
+
     async ask() {
         const questions = 
         [{
