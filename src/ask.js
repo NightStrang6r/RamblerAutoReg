@@ -76,12 +76,13 @@ class Ask {
             type: 'list',
             message: 'Choice mail domain (after @):',
             choices: [
-                'rambler.ru', 
+                'autorambler.ru', 
                 'lenta.ru',
-                'autorambler.ru',
                 'myrambler.ru',
-                'ro.ru',
-                'rambler.ua'
+                'rambler.ru',
+                'rambler.ua',
+                'ro.ua',
+                'soyuzmultfilm.ru'
             ]
         }, {
             name: 'passLength',

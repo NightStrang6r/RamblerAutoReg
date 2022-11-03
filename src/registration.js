@@ -257,12 +257,13 @@ class Registration {
 
     getDomainNumber(domain) {
         switch(domain) {
-            case 'rambler.ru': return 0;
+            case 'autorambler.ru': return 0;
             case 'lenta.ru': return 1;
-            case 'autorambler.ru': return 2;
-            case 'myrambler.ru': return 3;
-            case 'ro.ru': return 4;
-            case 'rambler.ua': return 5;
+            case 'myrambler.ru': return 2;
+            case 'rambler.ru': return 3;
+            case 'rambler.ua': return 4;
+            case 'ro.ua': return 5;
+            case 'soyuzmultfilm.ru': return 6;
             default: return 0;
         }
     }
