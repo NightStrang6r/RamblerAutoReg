@@ -12,7 +12,14 @@ const logo = `
 const version = `v1.1.0`;
 const by = 'By NightStranger\n';
 
+setTerminalTitle('RamblerAutoReg by NightStranger');
 printLogo();
+
+function setTerminalTitle(title) {
+    process.stdout.write(
+        String.fromCharCode(27) + "]0;" + title + String.fromCharCode(7)
+    );
+}
 
 function printLogo() {
     console.log(`\x1b[5m${logo}\x1b[0m`);
