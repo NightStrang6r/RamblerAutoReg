@@ -18,14 +18,14 @@ class Registration {
         this.links = this.storage.load('./src/links.json');
 
         this.selectors = {
-            mail: "#login",
+            mail: "#reg_login",
             domainButton: ".rui-Select-arrow",
             domainMenu: ".rui-Menu-content",
-            pass: "#newPassword",
-            passVerify: "#confirmPassword",
-            questionType: "input[placeholder='Выберите вопрос']",
+            pass: "#reg_new_password",
+            passVerify: "#reg_confirm_password",
+            questionType: 'input[placeholder="Выберите вопрос"][tabindex="0"]',
             questionSelect: "div[data-cerber-id*='Почтовый индекс ваших родителей']",
-            questionAnswer: "#answer",
+            questionAnswer: "#reg_answer",
             hCapcha: "#checkbox",
             submit: "button[type=submit]",
             submitImapChange: 'button.MailAppsChange-submitButton-S7'
