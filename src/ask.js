@@ -74,7 +74,7 @@ class Ask {
         }, {
             name: 'domain',
             type: 'list',
-            message: 'Choice mail domain (after @):',
+            message: 'Choose mail domain (after @):',
             choices: [
                 'autorambler.ru', 
                 'lenta.ru',
@@ -85,12 +85,9 @@ class Ask {
                 'soyuzmultfilm.ru'
             ]
         }, {
-            name: 'passLength',
-            type: 'number',
-            message: 'Enter pass length (15 by default):',
-            default() {
-                return 15;
-            }
+            name: 'mailPassword',
+            type: 'input',
+            message: 'Enter mail password:'
         }, {
             name: 'emailsCount',
             type: 'number',
@@ -108,6 +105,7 @@ class Ask {
         }];
 
         const answers = await inquirer.prompt(questions);
+        answers.passLength = 15;
         return answers;
     }
 }

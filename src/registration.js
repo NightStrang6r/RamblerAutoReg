@@ -18,17 +18,18 @@ class Registration {
         this.links = this.storage.load('./src/links.json');
 
         this.selectors = {
-            mail: "#reg_login",
+            mail: "#login",
             domainButton: ".rui-Select-arrow",
             domainMenu: ".rui-Menu-content",
-            pass: "#reg_new_password",
-            passVerify: "#reg_confirm_password",
+            pass: "#newPassword",
+            passVerify: "#confirmPassword",
             questionType: 'input[placeholder="Выберите вопрос"][tabindex="0"]',
             questionSelect: "div[data-cerber-id*='Почтовый индекс ваших родителей']",
-            questionAnswer: "#reg_answer",
+            questionAnswer: "#answer",
             hCapcha: "#checkbox",
             submit: "button[type=submit]",
-            submitImapChange: 'button.MailAppsChange-submitButton-S7'
+            submitImapChange: 'button.MailAppsChange-submitButton-S7',
+            closePopup: "button.rui-Popup-close"
         };
     }
 
@@ -57,6 +58,7 @@ class Registration {
         let answers = await this.ask.ask();
         let login = answers.mailLogin;
         let domain = answers.domain;
+        let pass = answers.mailPassword;
         let passLength = +answers.passLength;
         let emailsCount = +answers.emailsCount;
         let code = answers.code;
@@ -80,7 +82,7 @@ class Registration {
 
         const imap = await this.ask.askToEnableIMAP();
     
-        const mails = await this.generateAccounts(login, domain, passLength, emailsCount, startValue, code);
+        const mails = await this.generateAccounts(login, domain, pass, passLength, emailsCount, startValue, code);
         const toStart = await this.ask.askToStartRegistration();
         if(!toStart) return;
 
@@ -195,6 +197,24 @@ class Registration {
                 await page.goto('https://mail.rambler.ru/settings/mailapps/change');
                 await page.waitForSelector(this.selectors.submitImapChange);
 
+                await page.evaluate((closePopup) => {
+                    return new Promise((resolve, reject) => {
+                        let elements = [];
+
+                        while (!elements || elements.length < 2) {
+                            elements = document.querySelectorAll(closePopup);
+
+                        }
+
+                        const lastElement = elements[elements.length - 1];
+                        lastElement.click();
+                        resolve();
+                    });
+                }, this.selectors.closePopup);
+
+                await page.goto('https://mail.rambler.ru/settings/mailapps/change');
+                await page.waitForSelector(this.selectors.submitImapChange);
+
                 await page.evaluate((submitImapChange) => {
                     return new Promise((resolve, reject) => {
                         setInterval(() => {
@@ -223,25 +243,28 @@ class Registration {
         return result;
     }
 
-    generateAccounts(login, domain, passLength, emailsCount, startValue, code) {
+    generateAccounts(login, domain, pass, passLength, emailsCount, startValue, code) {
         let accounts = [];
         let password = new Password();
     
         for(let i = startValue; i < emailsCount + startValue; i++) {
             let currentLogin = login;
+            let currentPass = pass;
 
             if(emailsCount != 1) {
                 currentLogin = `${login}${i}`;
+                currentPass = `${pass}${i}`;
             }
     
             const email = `${currentLogin}@${domain}`;
-            const pass = password.generate(passLength);
+            if (!currentPass || currentPass == "")
+                currentPass = password.generate(passLength);
     
             accounts[accounts.length] = {
                 login: currentLogin,
                 domain: domain,
                 email: email,
-                pass: pass,
+                pass: currentPass,
                 code: code
             };
         }
@@ -258,13 +281,11 @@ class Registration {
     getDomainNumber(domain) {
         switch(domain) {
             case 'autorambler.ru': return 0;
-            case 'lenta.ru': return 1;
-            case 'myrambler.ru': return 2;
-            case 'rambler.ru': return 3;
-            case 'rambler.ua': return 4;
-            case 'ro.ua': return 5;
-            case 'soyuzmultfilm.ru': return 6;
-            default: return 0;
+            case 'myrambler.ru': return 1;
+            case 'rambler.ru': return 2;
+            case 'rambler.ua': return 3;
+            case 'ro.ru': return 4;
+            default: return 2;
         }
     }
 }
