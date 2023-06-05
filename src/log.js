@@ -9,7 +9,7 @@ const logo = `
 ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝ 
 (Rambler)\n`;
 
-const version = `v1.1.0`;
+const version = `v1.2.0`;
 const by = 'By NightStranger\n';
 
 setTerminalTitle('RamblerAutoReg by NightStranger');
